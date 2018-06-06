@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context-4.0.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/task
+        http://www.springframework.org/schema/task/spring-task-4.0.xsd
+        ">
+
+    <!-- 扫描IOC注解bean -->
+    <context:component-scan base-package="com.zeecle.web">
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" />
+    </context:component-scan>
+
+    <!-- 任务处理 -->
+    <task:annotation-driven />
+
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath:props/jdbc.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <!-- 数据源配置 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driverClassName}" />
+        <property name="user" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="jdbcUrl" value="${jdbc.url}"/>
+        <property name="testConnectionOnCheckin" value="${dbcp.testConnectionOnCheckin}"/>
+        <property name="testConnectionOnCheckout" value="${dbcp.testConnectionOnCheckout}"/>
+    </bean>
+
+    <!-- 定义mybatis sqlSessionFactory -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 注入数据源 -->
+        <property name="dataSource" ref="dataSource" />
+        <!-- 批量注入别名  -->
+        <property name="typeAliasesPackage" value="com.zeecle.web.pojo.*.*" />
+        <!-- 注入mybatis配置文件 -->
+        <property name="configLocation" value="classpath:config/mybatis/mybatis-conf.xml" />
+        <!-- 批量注入mapper配置文件 -->
+        <property name="mapperLocations" value="classpath:config/mybatis/mapper/UserMapper.xml" />
+    </bean>
+    <!-- mapper代理接口批量扫描 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!-- 扫描多个包value 采用逗号相隔-->
+        <property name="basePackage" value="com.zeecle.web.dao" />
+        <!-- 使用scanner时注册sqlSessionFactory时name必须sqlSessionFactoryBeanName -->
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />
+    </bean>
+
+    <!-- 事务处理 -->
+    <bean id="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <!-- 使用注解方式事务：@Transactional
+        该种方式配置在方法或类上使用注解进行事务，显得麻烦
+    <tx:annotation-driven transaction-manager="transactionManager" />
+    <aop:aspectj-autoproxy />
+     -->
+    <!--  非注解方式 -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="save*" propagation="REQUIRED" />
+            <tx:method name="add*" propagation="REQUIRED" />
+            <tx:method name="insert*" propagation="REQUIRED" />
+            <tx:method name="del*" propagation="REQUIRED" />
+            <tx:method name="update*" propagation="REQUIRED" />
+            <tx:method name="edit*" propagation="REQUIRED" />
+        </tx:attributes>
+    </tx:advice>
+
+    <aop:config proxy-target-class="true">
+        <aop:pointcut expression="execution(* com.zeecle.web.impl.*.*(..))"
+                      id="txPointcut" />
+        <aop:advisor pointcut-ref="txPointcut" advice-ref="txAdvice" />
+    </aop:config>
+</beans>
